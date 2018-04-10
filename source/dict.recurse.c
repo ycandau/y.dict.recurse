@@ -215,7 +215,7 @@ void C74_EXPORT ext_main(void *r)
 {
   t_class *c;
   
-  c = class_new("dict.recurse", (method)dict_recurse_new, (method)dict_recurse_free, 
+  c = class_new("y.dict.recurse", (method)dict_recurse_new, (method)dict_recurse_free, 
       (long)sizeof(t_dict_recurse), (method)NULL, A_GIMME, 0);
   
   // Methods
