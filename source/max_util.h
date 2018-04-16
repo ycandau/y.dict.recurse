@@ -10,22 +10,22 @@
 // ====  OUTPUTTING INFORMATION  ====
 
 #define _TRACE false
-#define TRACE(...) do { if (_TRACE) object_post((t_object *)x, "TRACE:  " __VA_ARGS__); } while (0)
+#define TRACE(...) do { if (_TRACE) object_post((t_object*)x, "TRACE:  " __VA_ARGS__); } while (0)
 
 #define _POST true
-#define POST(...) do { if (_POST) object_post((t_object *)x, __VA_ARGS__); } while (0)
+#define POST(...) do { if (_POST) object_post((t_object*)x, __VA_ARGS__); } while (0)
 
-#define WARNING(...) do { object_warn((t_object *)x, __VA_ARGS__); } while (0)
+#define WARNING(...) do { object_warn((t_object*)x, __VA_ARGS__); } while (0)
 
-#define MY_ERR(...)  do { object_error((t_object *)x, __VA_ARGS__); } while (0)
+#define MY_ERR(...)  do { object_error((t_object*)x, __VA_ARGS__); } while (0)
 
-#define MY_ASSERT(test, err, ...) if (test) { object_error((t_object *)x, __VA_ARGS__); return err; }
-#define MY_ASSERT_GOTO(test, label, ...) if (test) { object_error((t_object *)x, __VA_ARGS__); goto label; }
+#define MY_ASSERT(test, err, ...) if (test) { object_error((t_object*)x, __VA_ARGS__); return err; }
+#define MY_ASSERT_GOTO(test, label, ...) if (test) { object_error((t_object*)x, __VA_ARGS__); goto label; }
 
 // ====  ENUM  ====
 
-typedef enum _my_err
-{
+typedef enum _my_err {
+
   ERR_NULL,    // For initialization, should never be returned
   ERR_NONE,
   ERR_ARG_TYPE,

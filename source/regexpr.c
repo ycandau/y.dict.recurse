@@ -12,13 +12,13 @@
 const t_nfa_ind IND_NULL = (t_nfa_ind)(~0);
 
 // A pointer to the object for object_post()
-t_object *g_object = NULL;
+t_object* g_object = NULL;
 
-/**
-* Constant array of function pointers used for matching states
-*/
-const t_match match_arr[ST_NULL] =
-{
+//******************************************************************************
+//  Constant array of function pointers used for matching states
+//
+const t_match match_arr[ST_NULL] = {
+
   [ST_CHAR]    = st_match_char,
   [ST_BRACKET] = st_match_any,
   [ST_BRANCH]  = st_match_any,
@@ -43,19 +43,19 @@ const t_match match_arr[ST_NULL] =
 
 // ====  REGEXPR  ====
 
-/**
-  Create and allocate a new regular expression structure.
-  
-  @param max The size of the array of states in the regular expression.
+//******************************************************************************
+//  Create and allocate a new regular expression structure.
+//
+//  @param max The size of the array of states in the regular expression.
+//
+//  @return A pointer to the newly allocated a structure, or NULL on failure.
+//
+t_regexp2* re_new(t_nfa_ind max) {
 
-  @return A pointer to the newly allocated a structure, or NULL on failure.
-*/
-t_regexp2 *re_new(t_nfa_ind max)
-{
   TRACE_L("re_new");
 
   // Allocate the structure, and check the allocation
-  t_regexp2 *regexpr = (t_regexp2 *)sysmem_newptr(sizeof(t_regexp2));
+  t_regexp2* regexpr = (t_regexp2*)sysmem_newptr(sizeof(t_regexp2));
   if (!regexpr) { return NULL; }
 
   // Initialize the structure
@@ -67,25 +67,26 @@ t_regexp2 *re_new(t_nfa_ind max)
   return regexpr;
 }
 
-/**
-  Initialize a regular expression structure.
+//******************************************************************************
+//  Initialize a regular expression structure.
+//
+//  Allocates then sets all the basic types.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param max The maximum length of strings that can be processed.
+//
+//  Note: .err set to ERR_ALLOC or ERR_INDEX on failure, ERR_NONE otherwise.
+//
+void re_init(t_regexp2* regexpr, t_nfa_ind max) {
 
-  Allocates then sets all the basic types.
-
-  @param regexpr A pointer to the regular expression structure.
-  @param max The maximum length of strings that can be processed.
-
-  Note: .err set to ERR_ALLOC or ERR_INDEX on failure, ERR_NONE otherwise.
-*/
-void re_init(t_regexp2 *regexpr, t_nfa_ind max)
-{
   TRACE_L("re_init");
 
   // Test the maximum length argument
   if ((max <= 1) || (max >= IND_NULL)) {
-    re_empty(regexpr); 
+    re_empty(regexpr);
     ERR_L(ERR_INDEX, ,"re_init:  Invalid length argument:  %i - Should be:  %i to %i",
-      max, 1, IND_NULL - 1); }
+      max, 1, IND_NULL - 1);
+    }
 
   regexpr->length_max = max;
 
@@ -105,71 +106,72 @@ void re_init(t_regexp2 *regexpr, t_nfa_ind max)
 
   // Array of states
   regexpr->state_max = regexpr->length_max + 1;
-  regexpr->state_arr = (t_state *)sysmem_newptr(sizeof(t_state) * regexpr->state_max);
+  regexpr->state_arr = (t_state*)sysmem_newptr(sizeof(t_state) * regexpr->state_max);
   if (!regexpr->state_arr) { goto RE_INIT_END; }
 
   // Stack of fragments
-  regexpr->frag_arr = (t_fragment *)sysmem_newptr(sizeof(t_fragment)
+  regexpr->frag_arr = (t_fragment*)sysmem_newptr(sizeof(t_fragment)
     * (regexpr->length_max / 2 + 2));
   if (!regexpr->frag_arr) { goto RE_INIT_END; }
 
   // Stack of operators
-  regexpr->oper_arr = (t_uint8 *)sysmem_newptr(sizeof(t_uint8) * (regexpr->length_max + 1));
+  regexpr->oper_arr = (t_uint8*)sysmem_newptr(sizeof(t_uint8) * (regexpr->length_max + 1));
   if (!regexpr->oper_arr) { goto RE_INIT_END; }
 
   // The search expression in reverse Polish notation
-  regexpr->rpn_s = (char *)sysmem_newptr(sizeof(char) * regexpr->length_max * 2);
+  regexpr->rpn_s = (char*)sysmem_newptr(sizeof(char) * regexpr->length_max * 2);
   if (!regexpr->rpn_s) { goto RE_INIT_END; }
 
   // A string to hold all the substrings from the replace string
   // resized when necessary
   regexpr->repl_sub_max = max;
-  regexpr->repl_sub_s = (char *)sysmem_newptr(sizeof(char) * regexpr->repl_sub_max);
+  regexpr->repl_sub_s = (char*)sysmem_newptr(sizeof(char) * regexpr->repl_sub_max);
   if (!regexpr->repl_sub_s) { goto RE_INIT_END; }
 
   // A string to hold the assembled replace string
   // resized when necessary
   regexpr->replace_max = max;
-  regexpr->replace_s = (char *)sysmem_newptr(sizeof(char) * regexpr->replace_max);
+  regexpr->replace_s = (char*)sysmem_newptr(sizeof(char) * regexpr->replace_max);
   if (!regexpr->replace_s) { goto RE_INIT_END; }
 
   // Stacks of routines
-  regexpr->routine_cur = (t_simul *)sysmem_newptr(sizeof(t_simul) * regexpr->state_max);
+  regexpr->routine_cur = (t_simul*)sysmem_newptr(sizeof(t_simul) * regexpr->state_max);
   if (!regexpr->routine_cur) { goto RE_INIT_END; }
-  regexpr->routine_new = (t_simul *)sysmem_newptr(sizeof(t_simul) * regexpr->state_max);
+  regexpr->routine_new = (t_simul*)sysmem_newptr(sizeof(t_simul) * regexpr->state_max);
   if (!regexpr->routine_new) { goto RE_INIT_END; }
 
   // An array to hold information on the capture groups
-  regexpr->capt_set_arr = (t_string_ind *)sysmem_newptr(sizeof(t_string_ind) * 20 * regexpr->state_max);
+  regexpr->capt_set_arr = (t_string_ind*)sysmem_newptr(sizeof(t_string_ind) * 20 * regexpr->state_max);
   if (!regexpr->capt_set_arr) { goto RE_INIT_END; }
-  regexpr->capt_cnt_arr = (t_nfa_ind *)sysmem_newptr(sizeof(t_nfa_ind) * regexpr->state_max);
+  regexpr->capt_cnt_arr = (t_nfa_ind*)sysmem_newptr(sizeof(t_nfa_ind) * regexpr->state_max);
   if (!regexpr->capt_cnt_arr) { goto RE_INIT_END; }
 
   // Initialize the structure's members
   re_reset(regexpr);
   return;
-  
+
   // In case there was an allocation error
 RE_INIT_END:
   re_empty(regexpr);
   ERR_L(ERR_ALLOC, , "re_init:  Allocation error");
 }
 
-/**
-  Reset a regular expression structure.
+//******************************************************************************
+//  Reset a regular expression structure.
+//
+//  Called from re_compile() each time to reset all the compilation structures.
+//  Resets all values, but allocation is unchanged.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//
+void re_reset(t_regexp2* regexpr) {
 
-  Called from re_compile() each time to reset all the compilation structures.
-  Resets all values, but allocation is unchanged.
-  
-  @param regexpr A pointer to the regular expression structure.
-*/
-void re_reset(t_regexp2 *regexpr)
-{
   TRACE_L("re_reset");
 
   // Check the error status
-  if (!regexpr->length_max) { 
-    ERR_L(ERR_INDEX, , "re_reset:  Empty structure. The arrays are not allocated."); }
+  if (!regexpr->length_max) {
+    ERR_L(ERR_INDEX, , "re_reset:  Empty structure. The arrays are not allocated.");
+  }
 
   // ====  Replace compilation  ====
 
@@ -187,13 +189,14 @@ void re_reset(t_regexp2 *regexpr)
   // Reset the array of states
   // It is organized as a linked list of free states, starting at state_first_free,
   // following the ind1 indexes, and with a terminal IND_NULL value
-  t_state *state;
+  t_state* state;
   for (t_nfa_ind ind = 0; ind < regexpr->state_max; ind++) {
     state = regexpr->state_arr + ind;
     state->type = ST_NULL;
     state->ind1 = ind + 1;
     state->u.ind2 = IND_NULL;
-    state->gen_cnt = 0;  }
+    state->gen_cnt = 0;
+  }
 
   // Set the last state link to NULL
   state->ind1 = IND_NULL;
@@ -219,15 +222,15 @@ void re_reset(t_regexp2 *regexpr)
   *regexpr->oper_iter = OP_NULL;
 }
 
-/**
-  Free a regular expression structure and set its pointer to NULL.
-  
-  @param regexpr A pointer to a pointer to the regular expression structure.
-  
-  Note: No need to check if the pointer argument is NULL.
-*/
-void re_free(t_regexp2 **regexpr)
-{
+//******************************************************************************
+//  Free a regular expression structure and set its pointer to NULL.
+//
+//  @param regexpr A pointer to a pointer to the regular expression structure.
+//
+//  Note: No need to check if the pointer argument is NULL.
+//
+void re_free(t_regexp2** regexpr) {
+
   TRACE_L("re_free");
 
   // If the pointer is NULL do nothing
@@ -240,15 +243,15 @@ void re_free(t_regexp2 **regexpr)
   if (*regexpr) {  sysmem_freeptr(*regexpr);  *regexpr = NULL; }
 }
 
-/**
-  Empty a regular expression structure.
-  
-  @param regexpr A pointer to the regular expression structure.
-  
-  Note: No need to check if the pointer argument is NULL.
-*/
-void re_empty(t_regexp2 *regexpr)
-{
+//******************************************************************************
+//  Empty a regular expression structure.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//
+//  Note: No need to check if the pointer argument is NULL.
+//
+void re_empty(t_regexp2* regexpr) {
+
   TRACE_L("re_empty");
 
   // If the pointer is NULL do nothing
@@ -270,74 +273,75 @@ void re_empty(t_regexp2 *regexpr)
   regexpr->length_max = 0;  // Indicates that the structure is empty
 }
 
-/**
-  Set the object which uses the regular expression library.
-  Useful for object_post() for instance.
-  
-  @param x A pointer to the object.
-*/
-void re_set_object(void *object)
-{
+//******************************************************************************
+//  Set the object which uses the regular expression library.
+//  Useful for object_post() for instance.
+//
+//  @param x A pointer to the object.
+//
+void re_set_object(void* object) {
+
   TRACE_L("re_set_object");
 
-  g_object = (t_object *)object;
+  g_object = (t_object*)object;
 }
 
-/**
-  Create a new state.
-  
-  @param regexpr A pointer to the regular expression structure.
-  @param type The state's type, taken from e_state.
-  @param ind1 The first link to another state, as an index.
-  @param u A union for an index or a char value.
-  
-  @return The index of the new state, or IND_NULL if there are no remaining free states.
-  
-  Note: There is no actual allocation. All states are allocated as an array.
-  The function gets the first state from the linked list of free states.
-  .u.ind2 is used for .type = ST_BRANCH, otherwise .u.value is used.
- */
-t_nfa_ind state_new(t_regexp2 *regexpr, t_uint8 type, t_nfa_ind ind1, u_state_misc u)
-{
+//******************************************************************************
+//  Create a new state.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param type The state's type, taken from e_state.
+//  @param ind1 The first link to another state, as an index.
+//  @param u A union for an index or a char value.
+//
+//  @return The index of the new state, or IND_NULL if there are no remaining free states.
+//
+//  Note: There is no actual allocation. All states are allocated as an array.
+//  The function gets the first state from the linked list of free states.
+//  .u.ind2 is used for .type = ST_BRANCH, otherwise .u.value is used.
+//
+t_nfa_ind state_new(t_regexp2* regexpr, t_uint8 type, t_nfa_ind ind1, u_state_misc u) {
+
   // If there are no remaining free states
-  if (regexpr->state_first_free == IND_NULL) { 
-    ERR_L(ERR_ARR_FULL, IND_NULL, "state_new:  No more empty states to compile the automaton"); }
+  if (regexpr->state_first_free == IND_NULL) {
+    ERR_L(ERR_ARR_FULL, IND_NULL, "state_new:  No more empty states to compile the automaton");
+  }
 
   // Get the first state from the linked list of free states
   t_nfa_ind ind = regexpr->state_first_free;
-  t_state *state = regexpr->state_arr + ind;
+  t_state* state = regexpr->state_arr + ind;
   regexpr->state_first_free = state->ind1;
-  
+
   // Set the state values
   state->type = type;
   state->ind1 = ind1;
   state->u = u;
   state->gen_cnt = 0;
-  
+
   // Iterate the state count
   regexpr->state_cnt++;
 
   return ind;
 }
 
-/**
-  Post information on all the states.
-  
-  @param regexpr A pointer to the regular expression structure.
-*/
-void state_post(t_regexp2 *regexpr)
-{
+//******************************************************************************
+//  Post information on all the states.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//
+void state_post(t_regexp2* regexpr) {
+
   POST_L("RE States:  Count: %i - Max: %i - First: %i - Last: %i - First free: %i",
     regexpr->state_cnt, regexpr->state_max, regexpr->state_first, regexpr->state_last, regexpr->state_first_free);
-  
+
   // Loop through the states in use
-  t_state *state = NULL;
+  t_state* state = NULL;
   for (t_nfa_ind ind = 0; ind < regexpr->state_cnt; ind++) {
     state = regexpr->state_arr + ind;
 
     switch (state->type) {
 
-    case ST_BRANCH: 
+    case ST_BRANCH:
       POST_L("  S[%i]:  Type: %i - Ind1: %i - Ind2: %i",
       ind, state->type, state->ind1, state->u.ind2);
       break;
@@ -345,74 +349,78 @@ void state_post(t_regexp2 *regexpr)
     default:
       POST_L("  S[%i]:  Type: %i - Ind1: %i - Value: %c",
         ind, state->type, state->ind1, state->u.value);
-      break; } }
+      break;
+    }
+  }
 }
 
-/**
-  Set the values of a fragment.
-  
-  @param frag A pointer to the fragment.
-  @param first The index of the first state in the fragment.
-  @param term_beg The index of the state holding the first terminal link.
-  @param term_end The index of the state holding the last terminal link.
-*/
-void frag_set(t_fragment *frag, t_nfa_ind first, t_nfa_ind term_beg, t_nfa_ind term_end)
-{
+//******************************************************************************
+//  Set the values of a fragment.
+//
+//  @param frag A pointer to the fragment.
+//  @param first The index of the first state in the fragment.
+//  @param term_beg The index of the state holding the first terminal link.
+//  @param term_end The index of the state holding the last terminal link.
+//
+void frag_set(t_fragment* frag, t_nfa_ind first, t_nfa_ind term_beg, t_nfa_ind term_end) {
+
   frag->first = first;
   frag->term_beg = term_beg;
   frag->term_end = term_end;
 }
 
-/**
-  Connect the terminal links of a fragment to a state.
-  
-  @param regexpr A pointer to the regular expression structure.
-  @param frag A pointer to the fragment.
-  @param to_state The index of the state.
-*/
-void frag_connect(t_regexp2 *regexpr, t_fragment *frag, t_nfa_ind to_state)
-{
+//******************************************************************************
+//  Connect the terminal links of a fragment to a state.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param frag A pointer to the fragment.
+//  @param to_state The index of the state.
+//
+void frag_connect(t_regexp2* regexpr, t_fragment* frag, t_nfa_ind to_state) {
+
   t_nfa_ind ind = frag->term_beg;   // an index to loop through the terminal links
-  t_state *state = NULL;            // a state pointer to the corresponding state
-  
+  t_state* state = NULL;            // a state pointer to the corresponding state
+
   // Loop through the list of terminal links
   while (ind != IND_NULL) {
     state = regexpr->state_arr + ind;  // get the state corresponding to the index
     ind = state->ind1;                 // iterate the index
-    state->ind1 = to_state; }          // connect the terminal link to the state
+    state->ind1 = to_state;
+  }  // connect the terminal link to the state
 
   frag->term_beg = IND_NULL;           // the list of terminal links is now empty
   frag->term_end = IND_NULL;
 }
 
-/**
-  Post information on all the fragments.
-  
-  @param regexpr A pointer to the regular expression structure.
-*/
-void frag_post(t_regexp2 *regexpr)
-{
+//******************************************************************************
+//  Post information on all the fragments.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//
+void frag_post(t_regexp2* regexpr) {
+
   POST_L("RE Fragments:  Count: %i", regexpr->frag_iter - regexpr->frag_arr + 1);
-  
+
   // Loop through the fragments
-  t_fragment *frag = NULL;;
+  t_fragment* frag = NULL;;
   for (t_nfa_ind ind = 0; ind < regexpr->frag_iter - regexpr->frag_arr + 1; ind++) {
     frag = regexpr->frag_arr + ind;
     POST_L("  F[%i]:  First: %i - Term beg: %i - Term end: %i",
-      ind, frag->first, frag->term_beg, frag->term_end); }
+      ind, frag->first, frag->term_beg, frag->term_end);
+    }
 }
 
-/**
-  Create a new value state and a new fragment containing just that state.
-  
-  @param regexpr A pointer to the regular expression structure.
-  @param type The type of the state (ST_CHAR or ST_CH_CLASS).
-  @param value The character to store in the state value.
-  
-  Note: The fragment stack is incremented.
-*/
-void frag_new_val(t_regexp2 *regexpr, e_state type, char value)
-{
+//******************************************************************************
+//  Create a new value state and a new fragment containing just that state.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param type The type of the state (ST_CHAR or ST_CH_CLASS).
+//  @param value The character to store in the state value.
+//
+//  Note: The fragment stack is incremented.
+//
+void frag_new_val(t_regexp2* regexpr, e_state type, char value) {
+
   // == A new value might imply a concatenation
 
   // Add a concatenation operator to the operator stack
@@ -421,7 +429,8 @@ void frag_new_val(t_regexp2 *regexpr, e_state type, char value)
 
     // Unstack any previous concatenation, and stack a new concatenation
     if (*regexpr->oper_iter == OP_CONCAT) { frag_new_concat(regexpr); }
-    STACK_OPER(OP_CONCAT); }
+    STACK_OPER(OP_CONCAT);
+  }
 
   // == Back to adding a value to the fragment stack
 
@@ -434,20 +443,21 @@ void frag_new_val(t_regexp2 *regexpr, e_state type, char value)
   // Set the trailing variables
   regexpr->is_first = false;       // There is now a preceding value
   regexpr->prev_type = OP_VALUE;   // The previous type is a value
-  
+
   // Build the reverse polish notation string  @OPTION
   if ((type != ST_CHAR) && (type != ST_CH_CLASS_ANY)) {
-    *regexpr->rpn_iter++ = CH_ESCAPE; }
+    *regexpr->rpn_iter++ = CH_ESCAPE;
+  }
   *regexpr->rpn_iter++ = value;
 }
 
-/**
-  Create a new branch state and add a repetition to the current fragment.
-  
-  @param regexpr A pointer to the regular expression structure.
-*/
-void frag_new_repeat(t_regexp2 *regexpr)
-{
+//******************************************************************************
+//  Create a new branch state and add a repetition to the current fragment.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//
+void frag_new_repeat(t_regexp2* regexpr) {
+
   // Check for invalid character pairs:  ([*+?]  [*+?][*+?]  |[*+?]  ^[*+?]
   switch (regexpr->prev_type) {
 
@@ -456,12 +466,14 @@ void frag_new_repeat(t_regexp2 *regexpr)
 
   case OP_PAREN_L:  case OP_REPEAT:  case OP_ALTERN:
     ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error at %i:  Invalid sequence:  %c%c",
-      regexpr->re_search_iter - regexpr->re_search_s, *(regexpr->re_search_iter - 1), *regexpr->re_search_iter); }
+      regexpr->re_search_iter - regexpr->re_search_s, *(regexpr->re_search_iter - 1), *regexpr->re_search_iter);
+    }
 
   // There should be a preceding value (this is likely redundant)
   if (regexpr->is_first == true) {
     ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error at %i:  No value before %c",
-      regexpr->re_search_iter - regexpr->re_search_s + 1, *regexpr->re_search_iter); }
+      regexpr->re_search_iter - regexpr->re_search_s + 1, *regexpr->re_search_iter);
+    }
 
   // Set the previous type
   regexpr->prev_type = OP_REPEAT;
@@ -476,7 +488,7 @@ void frag_new_repeat(t_regexp2 *regexpr)
   case CH_REP_0_N:
     // Create a new branch state, and connect it to the beginning of the fragment
     state_ind = state_new(regexpr, ST_BRANCH, IND_NULL, U_IND(regexpr->frag_iter->first));
-    
+
     // Connect the current fragment to the branch state
     frag_connect(regexpr, regexpr->frag_iter, state_ind);
     // The current fragment now begins at the branch state
@@ -489,7 +501,7 @@ void frag_new_repeat(t_regexp2 *regexpr)
   case CH_REP_1_N:
     // Create a new branch state, and connect it to the beginning of the fragment
     state_ind = state_new(regexpr, ST_BRANCH, IND_NULL, U_IND(regexpr->frag_iter->first));
-    
+
     // Connect the current fragment to the branch state
     frag_connect(regexpr, regexpr->frag_iter, state_ind);
     // The beginning of the current fragment is unchanged
@@ -502,27 +514,28 @@ void frag_new_repeat(t_regexp2 *regexpr)
     // Create a new branch state, connect it to the beginning of the fragment
     // and add the first link to the list of terminal links
     state_ind = state_new(regexpr, ST_BRANCH, regexpr->frag_iter->term_beg, U_IND(regexpr->frag_iter->first));
-    
+
     // The current fragment now begins at the branch state
     regexpr->frag_iter->first = state_ind;
     // The list of terminal links now begins at the first branch state link
     // The end is unchanged
     regexpr->frag_iter->term_beg = state_ind;
-    break; }
+    break;
+  }
 
   return;
 }
 
-/**
-  Create a new branch state and add an alternation,
-  connecting the previous and current fragments.
-  
-  @param regexpr A pointer to the regular expression structure.
-  
-  Note: The operator and fragment stacks are decremented.
-*/
-void frag_new_altern(t_regexp2 *regexpr)
-{
+//******************************************************************************
+//  Create a new branch state and add an alternation,
+//  connecting the previous and current fragments.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//
+//  Note: The operator and fragment stacks are decremented.
+//
+void frag_new_altern(t_regexp2* regexpr) {
+
   // Decrement the stack of fragments and the stack of operators
   regexpr->frag_iter--;
   regexpr->oper_iter--;
@@ -532,7 +545,7 @@ void frag_new_altern(t_regexp2 *regexpr)
   // ind2 precedes ind1, to conform to the precedence in repeating states
   t_nfa_ind state_ind = state_new(regexpr, ST_BRANCH,
     (regexpr->frag_iter + 1)->first, U_IND(regexpr->frag_iter->first));
-  
+
   // The current fragment now begins at the branch state
   regexpr->frag_iter->first = state_ind;
   // Concatenate the two fragment's terminal links lists
@@ -546,15 +559,15 @@ void frag_new_altern(t_regexp2 *regexpr)
   *regexpr->rpn_iter++ = CH_ALTERN;
 }
 
-/**
-  Concatenate the previous and current fragments.
-  
-  @param regexpr A pointer to the regular expression structure.
-  
-  Note: The operator and fragment stacks are decremented.
-*/
-void frag_new_concat(t_regexp2 *regexpr)
-{
+//******************************************************************************
+//  Concatenate the previous and current fragments.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//
+//  Note: The operator and fragment stacks are decremented.
+//
+void frag_new_concat(t_regexp2* regexpr) {
+
   // Decrement the stack of fragments and the stack of operators
   regexpr->frag_iter--;
   regexpr->oper_iter--;
@@ -568,22 +581,22 @@ void frag_new_concat(t_regexp2 *regexpr)
   *regexpr->rpn_iter++ = CH_CONCAT;
 }
 
-/**
-Enclose the fragment in parentheses.
+//******************************************************************************
+//  Enclose the fragment in parentheses.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//
+//  Note: Only for capture groups requested in the replace string.
+//
+void frag_new_parenth(t_regexp2* regexpr) {
 
-@param regexpr A pointer to the regular expression structure.
-
-Note: Only for capture groups requested in the replace string.
-*/
-void frag_new_parenth(t_regexp2 *regexpr)
-{
   t_nfa_ind left_ind = state_new(regexpr, ST_PAREN,
     regexpr->frag_iter->first, U_IND(2 * *regexpr->oper_iter));
   t_nfa_ind right_ind = state_new(regexpr, ST_PAREN,
     IND_NULL, U_IND(2 * *regexpr->oper_iter + 1));
-  
+
   frag_connect(regexpr, regexpr->frag_iter, right_ind);
-  
+
   regexpr->frag_iter->first = left_ind;
   regexpr->frag_iter->term_beg = right_ind;
   regexpr->frag_iter->term_end = right_ind;
@@ -595,22 +608,22 @@ void frag_new_parenth(t_regexp2 *regexpr)
   *regexpr->rpn_iter++ = CH_PAREN_R;
 }
 
-/**
-  First compilation phase for the replace expression.
+//******************************************************************************
+//  First compilation phase for the replace expression.
+//
+//  The function scans the string once to determine which capture groups are requested.
+//
+//  Sets: capture_flags.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param re_replace_s A pointer to the replace expression.
+//
+//  @return The length of the string.
+//
+t_int32 re_compile_replace1(t_regexp2* regexpr, const char* const re_repl_s) {
 
-  The function scans the string once to determine which capture groups are requested.
-  
-  Sets: capture_flags.
-
-  @param regexpr A pointer to the regular expression structure.
-  @param re_replace_s A pointer to the replace expression.
-
-  @return The length of the string.
-*/
-t_int32 re_compile_replace1(t_regexp2 *regexpr, const char *const re_repl_s)
-{
   // Initialize the string iterator and counter
-  const char *re_repl_iter = re_repl_s;
+  const char* re_repl_iter = re_repl_s;
   t_int32 cnt = 0;
 
   // Loop through the replace string
@@ -618,33 +631,36 @@ t_int32 re_compile_replace1(t_regexp2 *regexpr, const char *const re_repl_s)
 
     // Look for capture group requests
     if (*re_repl_iter == CH_ESCAPE) {
-      
+
       re_repl_iter++; cnt++;
 
       if ((*re_repl_iter >= '0') && (*re_repl_iter <= '9')) {
-        regexpr->capt_flags |= 1 << (*re_repl_iter - '0'); }
+        regexpr->capt_flags |= 1 << (*re_repl_iter - '0');
+      }
 
-      if (*re_repl_iter == '\0') { continue; } }   // In case of invalid terminal '/'
+      if (*re_repl_iter == '\0') { continue; }
+    }  // In case of invalid terminal '/'
 
-    re_repl_iter++; cnt++; }
+    re_repl_iter++; cnt++;
+  }
 
   return cnt;
 }
 
-/**
-Compile the search expression of a RE into an NFA.
+//******************************************************************************
+//  Compile the search expression of a RE into an NFA.
+//
+//  Sets: paren_cnt, capt_cnt, state_arr, state_cnt, state_first, state_last.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param str A pointer to the regular expression search expression.
+//
+void re_compile_search(t_regexp2* regexpr, const char* const re_search_s) {
 
-Sets: paren_cnt, capt_cnt, state_arr, state_cnt, state_first, state_last.
-
-@param regexpr A pointer to the regular expression structure.
-@param str A pointer to the regular expression search expression.
-*/
-void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
-{
   // Loop through the characters of the regular expression
   while (*regexpr->re_search_iter && (regexpr->err == ERR_NONE)) {
     switch (*regexpr->re_search_iter) {
-    
+
     // ==== Escape sequences and character classes
     case CH_ESCAPE:
       regexpr->re_search_iter++;
@@ -680,19 +696,20 @@ void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
         POST_L("  It should be used to escape an operator or to indicate a character class.");
         if (*regexpr->re_search_iter == '\0') { continue; }    // case of invalid '/' at then end
         frag_new_val(regexpr, ST_CHAR, *regexpr->re_search_iter);
-        break; }
+        break;
+      }
       break;
 
     // ==== Any character wildkey
     case CH_WILDCARD: frag_new_val(regexpr, ST_CH_CLASS_ANY, *regexpr->re_search_iter);
       break;
-    
+
     // ==== Repetition:  acted on immediately as they are already postfix
     case CH_REP_0_N:  case CH_REP_1_N:  case CH_REP_0_1:
       frag_new_repeat(regexpr);
       if (regexpr->err != ERR_NONE) { return; }
       break;
-      
+
     // ==== Alternation
     case CH_ALTERN:
 
@@ -704,12 +721,14 @@ void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
 
       case OP_PAREN_L:  case OP_ALTERN:
         ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error at %i:  Invalid sequence:  %c%c",
-          regexpr->re_search_iter - regexpr->re_search_s, *(regexpr->re_search_iter - 1), CH_ALTERN); }
+          regexpr->re_search_iter - regexpr->re_search_s, *(regexpr->re_search_iter - 1), CH_ALTERN);
+        }
 
       // There should be a preceding value (this is likely redundant)
       if (regexpr->is_first == true) {
         ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error at %i:  No value before %c",
-          regexpr->re_search_iter - regexpr->re_search_s + 1, CH_ALTERN); }
+          regexpr->re_search_iter - regexpr->re_search_s + 1, CH_ALTERN);
+        }
 
       // Set the previous type
       regexpr->prev_type = OP_ALTERN;
@@ -728,16 +747,18 @@ void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
       // then unstack any previous concatenation, and stack a new concatenation
       if (!regexpr->is_first) {
         if (*regexpr->oper_iter == OP_CONCAT) { frag_new_concat(regexpr); }
-        STACK_OPER(OP_CONCAT); }
+        STACK_OPER(OP_CONCAT);
+      }
 
       // Test if there is a capture request for the parenthesis
       if (regexpr->capt_flags & (1 << regexpr->paren_cnt)) {
 
         regexpr->capt_all_to_used[regexpr->paren_cnt] = regexpr->capt_cnt;
-        STACK_OPER(regexpr->capt_cnt++); }
+        STACK_OPER(regexpr->capt_cnt++);
+      }
 
       else { STACK_OPER(OP_PAREN_L); }
-      
+
       // Set the trailing variables and increment the parenthesis counter
       regexpr->is_first = true;
       regexpr->prev_type = OP_PAREN_L;
@@ -755,12 +776,14 @@ void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
 
       case OP_PAREN_L:  case OP_ALTERN:
         ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error at %i:  Invalid sequence:  %c%c",
-          regexpr->re_search_iter - regexpr->re_search_s, *(regexpr->re_search_iter - 1), CH_PAREN_R); }
+          regexpr->re_search_iter - regexpr->re_search_s, *(regexpr->re_search_iter - 1), CH_PAREN_R);
+        }
 
       // There should be a preceding value (this is likely redundant)
       if (regexpr->is_first == true) {
         ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error at %i:  No value before %c",
-          regexpr->re_search_iter - regexpr->re_search_s + 1, *regexpr->re_search_iter); }
+          regexpr->re_search_iter - regexpr->re_search_s + 1, *regexpr->re_search_iter);
+        }
 
       // Set the previous type
       regexpr->prev_type = OP_PAREN_R;
@@ -772,9 +795,10 @@ void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
       // The operator stack should now hold a left parenthesis
       if (*regexpr->oper_iter <= 9) { frag_new_parenth(regexpr); }            // capture group parenthesis
       else if (*regexpr->oper_iter == OP_PAREN_L) { regexpr->oper_iter--; }    // non capturing parenthesis
-      
+
       else { ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error at %i:  Missing left parenthesis",
-          regexpr->re_search_iter - regexpr->re_search_s + 1); }
+          regexpr->re_search_iter - regexpr->re_search_s + 1);
+        }
       break;
 
     // ==== Ordinary character
@@ -790,7 +814,8 @@ void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
   switch (regexpr->prev_type) {
   case OP_ALTERN:  case OP_BRACKET_L:
     ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error at %i:  Invalid last character",
-      regexpr->re_search_iter - regexpr->re_search_s); }
+      regexpr->re_search_iter - regexpr->re_search_s);
+    }
 
   // Unstack any remaining concatenation and alternation
   if (*regexpr->oper_iter == OP_CONCAT) { frag_new_concat(regexpr); }
@@ -798,20 +823,23 @@ void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
 
   // The operator stack should now be empty
   if ((*regexpr->oper_iter >= OP_LAST) && (*regexpr->oper_iter <= OP_LAST + 10)) {
-    ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error:  Missing right parenthesis"); }
+    ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error:  Missing right parenthesis");
+  }
   else if (*regexpr->oper_iter != OP_NULL) {
-    ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error:  Operator stack not empty"); }
+    ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error:  Operator stack not empty");
+  }
 
   // The fragment stack should hold one fragment
   if ((regexpr->frag_iter - regexpr->frag_arr) != 1) {
-    ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error:  Fragment stack should hold one fragment"); }
+    ERR_L(ERR_SYNTAX, , "RE Compile:  Syntax error:  Fragment stack should hold one fragment");
+  }
 
   // Complete the NFA by setting the first state and the end state
   regexpr->state_first = regexpr->frag_iter->first;
   t_nfa_ind ind = state_new(regexpr, ST_END, IND_NULL, U_VAL('>'));
   frag_connect(regexpr, regexpr->frag_iter, ind);
   regexpr->state_last = ind;
-  
+
   // Complete the reverse polish notation  @OPTION
   *regexpr->rpn_iter = '\0';
 
@@ -819,38 +847,39 @@ void re_compile_search(t_regexp2 *regexpr, const char *const re_search_s)
   regexpr->capt_cnt <<= 1;
 }
 
-/**
-  Second compilation phase for the replace expression.
+//******************************************************************************
+//  Second compilation phase for the replace expression.
+//
+//  The function assembles a compiled string of substrings, looking for capture groups.
+//  Each substring but the last is terminated by '\0' and a capture group index.
+//  The function discards invalid escape characters and capture requests for which
+//  there are not enough parentheses pairs. It also clears these in the flags.
+//
+//  Sets:  repl_sub_s, repl_sub_cnt, capt_flags.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param re_replace_s A pointer to the replace expression.
+//
+void re_compile_replace2(t_regexp2* regexpr, const char* const re_repl_s) {
 
-  The function assembles a compiled string of substrings, looking for capture groups.
-  Each substring but the last is terminated by '\0' and a capture group index.
-  The function discards invalid escape characters and capture requests for which
-  there are not enough parentheses pairs. It also clears these in the flags.
-
-  Sets:  repl_sub_s, repl_sub_cnt, capt_flags.
-
-  @param regexpr A pointer to the regular expression structure.
-  @param re_replace_s A pointer to the replace expression.
-*/
-void re_compile_replace2(t_regexp2 *regexpr, const char *const re_repl_s)
-{
   // If there are less parentheses pairs than requested capture groups
   // set the extraneous flags to 0
   if ((1 << regexpr->paren_cnt) <= regexpr->capt_flags) {
     POST_L("WARNING:  RE Compile:  Less parentheses than capture groups requested.");
     POST_L("  The extraneous capture requests are ignored.");
-    regexpr->capt_flags &= (1 << regexpr->paren_cnt) - 1; }
+    regexpr->capt_flags &= (1 << regexpr->paren_cnt) - 1;
+  }
 
   // Initialize the pointers and the counter
-  const char *re_repl_iter = re_repl_s;
-  char *repl_sub_iter = regexpr->repl_sub_s;
+  const char* re_repl_iter = re_repl_s;
+  char* repl_sub_iter = regexpr->repl_sub_s;
 
   // Loop through the replace string
   while (*re_repl_iter) {
 
     // Process escape characters separately
     if (*re_repl_iter == CH_ESCAPE) {
-      
+
       // Consider the next character
       switch (*++re_repl_iter) {
 
@@ -863,10 +892,11 @@ void re_compile_replace2(t_regexp2 *regexpr, const char *const re_repl_s)
 
         // If there is a parenthesis pair for the capture group
         if (*re_repl_iter - '0' < regexpr->paren_cnt) {
-          regexpr->repl_sub_cnt++;    
+          regexpr->repl_sub_cnt++;
           *repl_sub_iter++ = '\0';
           *repl_sub_iter++ = regexpr->capt_all_to_used[*re_repl_iter++ - '0'];
-          continue; }
+          continue;
+        }
 
         // Otherwise discard it
         else { re_repl_iter++; continue; }
@@ -880,33 +910,36 @@ void re_compile_replace2(t_regexp2 *regexpr, const char *const re_repl_s)
       default:
         POST_L("WARNING:  RE Compile:  Invalid escape char in replace expression. Discarded.");
         POST_L("  It should be followed by %c (escaped escape) or a digit (capture group).", CH_ESCAPE);
-        break; } }
+        break;
+      }
+    }
 
     // In most cases, copy and iterate. Exceptions use continue instead of break.
-    *repl_sub_iter++ = *re_repl_iter++; }
+    *repl_sub_iter++ = *re_repl_iter++;
+  }
 
   // Add a terminal character to the string
   *repl_sub_iter = '\0';
 }
 
-/**
-  Compile a regular expression into an NFA.
-  
-  @param regexpr A pointer to the regular expression structure.
-  @param re_search_s A pointer to the regular expression search expression.
-  @param re_replace_s A pointer to the regular expression replace string.
+//******************************************************************************
+//  Compile a regular expression into an NFA.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param re_search_s A pointer to the regular expression search expression.
+//  @param re_replace_s A pointer to the regular expression replace string.
+//
+//  Note: ->err set to ERR_ALLOC or ERR_SYNTAX if there is an error.
+//
+void re_compile(t_regexp2* regexpr, const char* const re_search_s, const char* const re_repl_s) {
 
-  Note: ->err set to ERR_ALLOC or ERR_SYNTAX if there is an error.
-*/
-void re_compile(t_regexp2 *regexpr, const char *const re_search_s, const char *const re_repl_s)
-{
   TRACE_L("re_compile");
-  
+
   // == Search expression
 
   // Test that the search expression is not NULL
   if (!re_search_s) {  ERR_L(ERR_NULL_PTR, , "RE Compile:  NULL search expression."); }
-  
+
   // Store the pointer to the search expression
   regexpr->re_search_s = re_search_s;
 
@@ -920,7 +953,8 @@ void re_compile(t_regexp2 *regexpr, const char *const re_search_s, const char *c
   else if (len < IND_NULL) {
     re_empty(regexpr);
     re_init(regexpr, (t_nfa_ind)len);
-    if (regexpr->err != ERR_NONE) { return; }  }
+    if (regexpr->err != ERR_NONE) { return; }
+  }
 
   // ... too long: abort
   else { ERR_L(ERR_STR_LEN, , "RE Compile:  Search string too long:  max is %i", IND_NULL - 1); }
@@ -937,13 +971,15 @@ void re_compile(t_regexp2 *regexpr, const char *const re_search_s, const char *c
       // Resize if necessary
       regexpr->repl_sub_max = (t_string_ind)MAX((len + 1), (2 * regexpr->repl_sub_max));
       sysmem_freeptr(regexpr->repl_sub_s);
-      regexpr->repl_sub_s = (char *)sysmem_newptr(sizeof(char) * regexpr->repl_sub_max);
+      regexpr->repl_sub_s = (char*)sysmem_newptr(sizeof(char) * regexpr->repl_sub_max);
 
       // Test the allocation
       if (!regexpr->repl_sub_s) {
         regexpr->repl_sub_max = 0;
-        ERR_L(ERR_ALLOC, , "re_compile:  Allocation error."); } }
-    
+        ERR_L(ERR_ALLOC, , "re_compile:  Allocation error.");
+      }
+    }
+
     // Compile the replace and the search expressions
     re_compile_replace1(regexpr, re_repl_s);
     re_compile_search(regexpr, re_search_s);
@@ -951,25 +987,27 @@ void re_compile(t_regexp2 *regexpr, const char *const re_search_s, const char *c
 
     // If there are no capture groups, get the replace string directly
     if (regexpr->repl_sub_cnt == 1) { regexpr->replace_p = regexpr->repl_sub_s; }
-    else { regexpr->replace_p = regexpr->replace_s; } }
+    else { regexpr->replace_p = regexpr->replace_s; }
+  }
 
   // If there is no replace expression
   else {
     regexpr->capt_flags = 0;
     regexpr->repl_sub_cnt = 0;
     re_compile_search(regexpr, re_search_s);
-    regexpr->replace_p = NULL; }
+    regexpr->replace_p = NULL;
+  }
 }
 
-/**
-  Try matching a value with a state, with no capture.
+//******************************************************************************
+//  Try matching a value with a state, with no capture.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param state The state with witch to match the character.
+//  @param set_ind The index of the capture set referenced by the routine.
+//
+void re_simul_state_nc(t_regexp2* regexpr, t_state* state, t_nfa_ind set_ind) {
 
-  @param regexpr A pointer to the regular expression structure.
-  @param state The state with witch to match the character.
-  @param set_ind The index of the capture set referenced by the routine.
-*/
-void re_simul_state_nc(t_regexp2 *regexpr, t_state *state, t_nfa_ind set_ind)
-{  
   // If the state has not been visited this round, and it matches the input
   if ((state->gen_cnt != regexpr->gen_cnt)
     && (match_arr[state->type](*regexpr->match_iter, state->u.value))) {
@@ -994,18 +1032,20 @@ void re_simul_state_nc(t_regexp2 *regexpr, t_state *state, t_nfa_ind set_ind)
     // Otherwise add the state to the new list of matching states
     default:
       (regexpr->rnew_iter++)->state_ind = state->ind1;
-      break; } }
+      break;
+    }
+  }
 }
 
-/**
-Try matching a value with a state.
+//******************************************************************************
+//  Try matching a value with a state.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param state The state with witch to match the character.
+//  @param set_ind The index of the capture set referenced by the routine.
+//
+void re_simul_state_wc(t_regexp2* regexpr, t_state* state, t_nfa_ind set_ind) {
 
-@param regexpr A pointer to the regular expression structure.
-@param state The state with witch to match the character.
-@param set_ind The index of the capture set referenced by the routine.
-*/
-void re_simul_state_wc(t_regexp2 *regexpr, t_state *state, t_nfa_ind set_ind)
-{  
   // If the state has not been visited this round, and it matches the input
   if ((state->gen_cnt != regexpr->gen_cnt)
     && (match_arr[state->type](*regexpr->match_iter, state->u.value))) {
@@ -1037,17 +1077,18 @@ void re_simul_state_wc(t_regexp2 *regexpr, t_state *state, t_nfa_ind set_ind)
         (CAPT_CNT(set_ind))--;
 
         // Get the next free set, duplicate, and set its count to one
-        t_string_ind *capt_iter = CAPT_IND(set_ind);
-        
+        t_string_ind* capt_iter = CAPT_IND(set_ind);
+
         set_ind2 = regexpr->capt_free_ind;
-        t_string_ind *capt_iter2 = CAPT_IND(set_ind2);
+        t_string_ind* capt_iter2 = CAPT_IND(set_ind2);
         regexpr->capt_free_ind = (t_nfa_ind)*capt_iter2;
-        
+
         t_uint8 cntd = regexpr->capt_cnt;
         while (cntd--) { *capt_iter2++ = *capt_iter++; }
 
-        CAPT_CNT(set_ind2) = 1;  }
-      
+        CAPT_CNT(set_ind2) = 1;
+      }
+
       // Record the parenthesis index
       *(CAPT_IND(set_ind2) + state->u.ind2) = regexpr->match_ind;
       re_simul_state_wc(regexpr, regexpr->state_arr + state->ind1, set_ind2);
@@ -1061,7 +1102,9 @@ void re_simul_state_wc(t_regexp2 *regexpr, t_state *state, t_nfa_ind set_ind)
     default:
       regexpr->rnew_iter->state_ind = state->ind1;
       (regexpr->rnew_iter++)->set_ind = set_ind;
-      break; } }
+      break;
+    }
+  }
 
   // Otherwise (no match or state already crossed)
   else {
@@ -1072,22 +1115,24 @@ void re_simul_state_wc(t_regexp2 *regexpr, t_state *state, t_nfa_ind set_ind)
     // If the count is 0, release the capture set
     if (CAPT_CNT(set_ind) == 0) {
       *CAPT_IND(set_ind) = regexpr->capt_free_ind;
-      regexpr->capt_free_ind = set_ind; } }
+      regexpr->capt_free_ind = set_ind;
+    }
+  }
 }
 
-/**
-  Concatenate the replace string in the simulation phase.
+//******************************************************************************
+//  Concatenate the replace string in the simulation phase.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param match_s A pointer to the match string.
+//
+void re_simul_replace(t_regexp2* regexpr, const char* const match_s) {
 
-  @param regexpr A pointer to the regular expression structure.
-  @param match_s A pointer to the match string.
-*/
-void re_simul_replace(t_regexp2 *regexpr, const char *const match_s)
-{
-  const char *sub_iter = regexpr->repl_sub_s;    // substrings from the replace expression
-  t_string_ind *capt_end = CAPT_IND(regexpr->capt_end_ind);
-  t_string_ind *capt_ind = NULL;
-  const char *capt_iter = NULL;                  // substrings from the capture groups
-  char *replace_iter = regexpr->replace_s;      // destination replace string
+  const char* sub_iter = regexpr->repl_sub_s;    // substrings from the replace expression
+  t_string_ind* capt_end = CAPT_IND(regexpr->capt_end_ind);
+  t_string_ind* capt_ind = NULL;
+  const char* capt_iter = NULL;                  // substrings from the capture groups
+  char* replace_iter = regexpr->replace_s;      // destination replace string
 
   // Loop through the substrings and capture groups
   for (t_uint8 cnt = 1; cnt < regexpr->repl_sub_cnt; cnt++) {
@@ -1100,27 +1145,29 @@ void re_simul_replace(t_regexp2 *regexpr, const char *const match_s)
     capt_ind = capt_end + 2 * (*sub_iter++);
     capt_iter = match_s + *capt_ind;
     t_string_ind cntd = *(capt_ind + 1) - *capt_ind;
-    while (cntd--) { *replace_iter++ = *capt_iter++; } }
-  
+    while (cntd--) { *replace_iter++ = *capt_iter++; }
+  }
+
   // Copy the last substring from the replace string
   while (*sub_iter) { *replace_iter++ = *sub_iter++; }
   *replace_iter = '\0';
 }
 
-/**
-Simulation: Run a string through the NFA to see whether it matches.
+//******************************************************************************
+//  Simulation: Run a string through the NFA to see whether it matches.
+//
+//  @param regexpr A pointer to the regular expression structure.
+//  @param match_s A pointer to the string which is to be matched.
+//
+t_bool re_simulate(t_regexp2* regexpr, const char* const match_s) {
 
-@param regexpr A pointer to the regular expression structure.
-@param match_s A pointer to the string which is to be matched.
-*/
-t_bool re_simulate(t_regexp2 *regexpr, const char *const match_s)
-{
   // Test if a regular expression has been compiled
   if (!regexpr->state_cnt) {
-    ERR_L(ERR_MISC, false , "RE Simulate:  No preceding compilation"); }
+    ERR_L(ERR_MISC, false , "RE Simulate:  No preceding compilation");
+  }
 
   // Initialize the pointers
-  t_simul *rcur_iter = NULL;
+  t_simul* rcur_iter = NULL;
   regexpr->match_iter = match_s;
   regexpr->gen_cnt = 255;
   regexpr->match_ind = 0;
@@ -1141,7 +1188,7 @@ t_bool re_simulate(t_regexp2 *regexpr, const char *const match_s)
     // Set the first capture group to 0 and count to 1
     CAPT_CNT(0) = 1;
     t_nfa_ind cnt = regexpr->capt_cnt;
-    t_string_ind *capt_iter = CAPT_IND(0);
+    t_string_ind* capt_iter = CAPT_IND(0);
     while (cnt--) { *capt_iter++ = 0; }
 
     // Set the linked list of capture sets up to state_cnt
@@ -1149,12 +1196,14 @@ t_bool re_simulate(t_regexp2 *regexpr, const char *const match_s)
     capt_iter = CAPT_IND(1);
     for (cnt = 1; cnt < regexpr->state_cnt - 1; cnt++) {
       *capt_iter = cnt + 1;
-      capt_iter += regexpr->capt_cnt; }
-    *capt_iter = IND_NULL; }
+      capt_iter += regexpr->capt_cnt;
+    }
+    *capt_iter = IND_NULL;
+  }
 
   // Otherwise: no replace expression or no capture groups
   else { simul_state = re_simul_state_nc; }
-      
+
   // ====  Loop through the match string ====
   do {
 
@@ -1169,14 +1218,17 @@ t_bool re_simulate(t_regexp2 *regexpr, const char *const match_s)
     if (regexpr->gen_cnt == 255) {
       regexpr->gen_cnt = 0;
       for (t_nfa_ind ind = 0; ind < regexpr->state_cnt; ind++) {
-        (regexpr->state_arr + ind)->gen_cnt = 0; } }
+        (regexpr->state_arr + ind)->gen_cnt = 0;
+      }
+    }
     regexpr->gen_cnt++;
 
     // ==  Loop through the list of matching states  ==
     // Using the function pointer previsouly set
     while (rcur_iter->state_ind != IND_NULL) {
       simul_state(regexpr, regexpr->state_arr + rcur_iter->state_ind, rcur_iter->set_ind);
-      rcur_iter++; }
+      rcur_iter++;
+    }
 
     // Add a terminal index to the new list of matching states
     regexpr->rnew_iter->state_ind = IND_NULL;
@@ -1191,112 +1243,114 @@ t_bool re_simulate(t_regexp2 *regexpr, const char *const match_s)
   // Test the generation count of the last state for overall matching
   if ((regexpr->state_arr + regexpr->state_last)->gen_cnt == regexpr->gen_cnt) {
     if (regexpr->repl_sub_cnt) { re_simul_replace(regexpr, match_s); }
-    return true; }
+    return true;
+  }
 
   else { return false; }
 }
 
 // ====  CHARACTER CLASSES  ====
 
-t_bool st_match_char(char match_c, char ref_c)
-{
+t_bool st_match_char(char match_c, char ref_c) {
+
   return (match_c == ref_c);
 }
 
-t_bool st_match_end(char match_c, char ref_c)
-{
+t_bool st_match_end(char match_c, char ref_c) {
+
   return (match_c == '\0');
 }
 
-t_bool st_match_none(char match_c, char ref_c)
-{
+t_bool st_match_none(char match_c, char ref_c) {
+
   return false;
 }
 
-t_bool st_match_any(char match_c, char ref_c)
-{
+t_bool st_match_any(char match_c, char ref_c) {
+
   return true;
 }
 
-t_bool st_match_digit(char match_c, char ref_c)
-{
+t_bool st_match_digit(char match_c, char ref_c) {
+
   return ((match_c >= '0') && (match_c <= '9'));
 }
 
-t_bool st_match_not_digit(char match_c, char ref_c)
-{
+t_bool st_match_not_digit(char match_c, char ref_c) {
+
   return ((match_c < '0') || (match_c > '9'));
 }
 
-t_bool st_match_alpha(char match_c, char ref_c)
-{
+t_bool st_match_alpha(char match_c, char ref_c) {
+
   return (((match_c >= 'a') && (match_c <= 'z')) || ((match_c >= 'A') && (match_c <= 'Z')));
 }
 
-t_bool st_match_not_alpha(char match_c, char ref_c)
-{
+t_bool st_match_not_alpha(char match_c, char ref_c) {
+
   return (((match_c < 'a') || (match_c > 'z')) && ((match_c < 'A') || (match_c > 'Z')));
 }
 
-t_bool st_match_lower(char match_c, char ref_c)
-{
+t_bool st_match_lower(char match_c, char ref_c) {
+
   return ((match_c >= 'a') && (match_c <= 'z'));
 }
 
-t_bool st_match_not_lower(char match_c, char ref_c)
-{
+t_bool st_match_not_lower(char match_c, char ref_c) {
+
   return ((match_c < 'a') || (match_c > 'z'));
 }
 
-t_bool st_match_upper(char match_c, char ref_c)
-{
+t_bool st_match_upper(char match_c, char ref_c) {
+
   return ((match_c >= 'A') && (match_c <= 'Z'));
 }
 
-t_bool st_match_not_upper(char match_c, char ref_c)
-{
+t_bool st_match_not_upper(char match_c, char ref_c) {
+
   return ((match_c < 'A') || (match_c > 'Z'));
 }
 
-t_bool st_match_word(char match_c, char ref_c)
-{
+t_bool st_match_word(char match_c, char ref_c) {
+
   return (((match_c >= 'a') && (match_c <= 'z')) || ((match_c >= 'A') && (match_c <= 'Z'))
     || ((match_c >= '0') && (match_c <= '9')) || (match_c == CH_CONCAT));
 }
 
-t_bool st_match_not_word(char match_c, char ref_c)
-{
+t_bool st_match_not_word(char match_c, char ref_c) {
+
   return (((match_c < 'a') || (match_c > 'z')) && ((match_c < 'A') || (match_c > 'Z'))
     && ((match_c < '0') || (match_c > '9')) && (match_c != CH_CONCAT));
 }
 
-t_bool st_match_space(char match_c, char ref_c)
-{
+t_bool st_match_space(char match_c, char ref_c) {
+
   return ((match_c == ' ') || (match_c == '\t') || (match_c == '\r') || (match_c == '\n') || (match_c == '\f'));
 }
 
-t_bool st_match_not_space(char match_c, char ref_c)
-{
+t_bool st_match_not_space(char match_c, char ref_c) {
+
   return ((match_c != ' ') && (match_c != '\t') && (match_c != '\r') && (match_c != '\n') && (match_c != '\f'));
 }
 
 // ====  REGEXPR_NEW  ====
 
-t_regexpr *regexpr_new()
-{
-  t_regexpr *expr = (t_regexpr *)sysmem_newptr(sizeof(t_regexpr));
-  
+t_regexpr* regexpr_new() {
+
+  t_regexpr* expr = (t_regexpr*)sysmem_newptr(sizeof(t_regexpr));
+
   if (expr) {
     expr->search_frag_s = NULL;
-    regexpr_reset(expr); }
+    regexpr_reset(expr);
+  }
 
   return expr;
 }
 
 // ====  REGEXPR_RESET  ====
 
-void regexpr_reset(t_regexpr *expr)
-{
+void regexpr_reset(t_regexpr* expr) {
+
   expr->search_sym = gensym("");
   expr->search_frag_sym = gensym("");
   expr->search_frag_len = 0;
@@ -1305,20 +1359,22 @@ void regexpr_reset(t_regexpr *expr)
   expr->match_fct = &_regexpr_match_false;
 
   if (expr->search_frag_s) {
-    sysmem_freeptr(expr->search_frag_s); expr->search_frag_s = NULL; }
+    sysmem_freeptr(expr->search_frag_s); expr->search_frag_s = NULL;
+  }
 }
 
 // ====  REGEXPR_SET  ====
 
-t_my_err regexpr_set(t_regexpr *expr, t_symbol *search_sym)
-{
+t_my_err regexpr_set(t_regexpr* expr, t_symbol* search_sym) {
+
   // Universal wildcard
   if ((search_sym == gensym("*")) || (search_sym == gensym("**"))
       || (search_sym == gensym("*$")) || (search_sym == gensym("$*"))) {
     regexpr_reset(expr);
     expr->search_sym = search_sym;
     expr->match_fct = &_regexpr_match_true;
-    return ERR_NONE; }
+    return ERR_NONE;
+  }
 
   // The other special cases are invalid
   else if ((search_sym == gensym("")) || (search_sym == gensym("$"))
@@ -1326,55 +1382,59 @@ t_my_err regexpr_set(t_regexpr *expr, t_symbol *search_sym)
     regexpr_reset(expr);
     expr->search_sym = search_sym;
     expr->match_fct = &_regexpr_match_false;
-    return ERR_NONE; }
+    return ERR_NONE;
+  }
 
   // Other cases
   else {
     expr->search_sym = search_sym;
-  
+
     t_int32 expr_len = (t_int32)strlen(search_sym->s_name);
     t_int32 offset_beg, offset_end;
 
     switch (search_sym->s_name[0]) {
     case CH_REP_0_N:
     case '$': expr->type_beg = search_sym->s_name[0]; offset_beg = 1; break;
-    default: expr->type_beg = 'X'; offset_beg = 0; break;  }
+    default: expr->type_beg = 'X'; offset_beg = 0; break;
+  }
 
     switch (search_sym->s_name[expr_len - 1]) {
     case CH_REP_0_N:
     case '$': expr->type_end = search_sym->s_name[expr_len - 1]; offset_end = 1; break;
-    default: expr->type_end = 'X'; offset_end = 0; break;  }
+    default: expr->type_end = 'X'; offset_end = 0; break;
+  }
 
     expr->search_frag_len = expr_len - offset_beg - offset_end;
 
     if (expr->search_frag_s) { sysmem_freeptr(expr->search_frag_s); }
-    expr->search_frag_s = (char *)sysmem_newptr(sizeof(char) * (expr->search_frag_len + 1));
+    expr->search_frag_s = (char*)sysmem_newptr(sizeof(char) * (expr->search_frag_len + 1));
     if (!expr->search_frag_s) { regexpr_reset(expr); return ERR_ALLOC; }
 
     strncpy_zero(expr->search_frag_s, expr->search_sym->s_name + offset_beg, expr->search_frag_len + 1);
     expr->search_frag_s[expr->search_frag_len] = '\0';
-    
+
     expr->search_frag_sym = gensym(expr->search_frag_s);
 
     if (offset_beg + offset_end == 0) { expr->match_fct = &_regexpr_match_reg; }
     else if ((offset_beg == 0) && (offset_end == 1)) { expr->match_fct = &_regexpr_match_beg; }
     else if ((offset_beg == 1) && (offset_end == 0)) { expr->match_fct = &_regexpr_match_end; }
     else if ((offset_beg == 1) && (offset_end == 1)) { expr->match_fct = &_regexpr_match_mid; }
-  
-    return ERR_NONE; }
+
+    return ERR_NONE;
+  }
 }
 
 // ====  REGEXPR_FREE  ====
-void regexpr_free(t_regexpr *expr)
-{
+void regexpr_free(t_regexpr* expr) {
+
   if (expr->search_frag_s) { sysmem_freeptr(expr->search_frag_s); }
   regexpr_reset(expr);
 }
 
 // ====  REGEXPR_MATCH  ====
 
-t_bool regexpr_match(t_regexpr *expr, t_symbol *match_sym)
-{
+t_bool regexpr_match(t_regexpr* expr, t_symbol* match_sym) {
+
   return (expr->match_fct(expr, match_sym));
 }
 
@@ -1382,29 +1442,29 @@ t_bool regexpr_match(t_regexpr *expr, t_symbol *match_sym)
 
 // ====  _REGEXPR_MATCH_TRUE  ====
 
-t_bool _regexpr_match_true(t_regexpr *expr, t_symbol *match_sym)
-{
+t_bool _regexpr_match_true(t_regexpr* expr, t_symbol* match_sym) {
+
   return true;
 }
 
 // ====  _REGEXPR_MATCH_FALSE  ====
 
-t_bool _regexpr_match_false(t_regexpr *expr, t_symbol *match_sym)
-{
+t_bool _regexpr_match_false(t_regexpr* expr, t_symbol* match_sym) {
+
   return false;
 }
 
 // ====  _REGEXPR_MATCH_REG  ====
 
-t_bool _regexpr_match_reg(t_regexpr *expr, t_symbol *match_sym)
-{
+t_bool _regexpr_match_reg(t_regexpr* expr, t_symbol* match_sym) {
+
   return (expr->search_frag_sym == match_sym);
 }
 
 // ====  _REGEXPR_MATCH_BEG  ====
 
-t_bool _regexpr_match_beg(t_regexpr *expr, t_symbol *match_sym)
-{
+t_bool _regexpr_match_beg(t_regexpr* expr, t_symbol* match_sym) {
+
   t_bool test = _regexpr_match_in_forward(expr->search_frag_s, match_sym->s_name);
 
   if ((!test) || ((expr->type_end == '$') && (match_sym->s_name[expr->search_frag_len] != ' ') && (match_sym->s_name[expr->search_frag_len] != '\0'))) { return false; }
@@ -1413,8 +1473,8 @@ t_bool _regexpr_match_beg(t_regexpr *expr, t_symbol *match_sym)
 
 // ====  _REGEXPR_MATCH_END  ====
 
-t_bool _regexpr_match_end(t_regexpr *expr, t_symbol *match_sym)
-{
+t_bool _regexpr_match_end(t_regexpr* expr, t_symbol* match_sym) {
+
   t_int32 match_len = (t_int32)strlen(match_sym->s_name);
   t_bool test = _regexpr_match_in_backward(expr->search_frag_s, match_sym->s_name, expr->search_frag_len, match_len);
 
@@ -1424,10 +1484,10 @@ t_bool _regexpr_match_end(t_regexpr *expr, t_symbol *match_sym)
 
 // ====  _REGEXPR_MATCH_MID  ====
 
-t_bool _regexpr_match_mid(t_regexpr *expr, t_symbol *match_sym)
-{
+t_bool _regexpr_match_mid(t_regexpr* expr, t_symbol* match_sym) {
+
   char* find = match_sym->s_name;
-  
+
   while (find != NULL) {
 
     find = strstr(find, expr->search_frag_s);
@@ -1436,9 +1496,12 @@ t_bool _regexpr_match_mid(t_regexpr *expr, t_symbol *match_sym)
 
         if (((expr->type_beg != '$') || (find == match_sym->s_name) || (*(find - 1) == ' '))
             && ((expr->type_end != '$') || (*(find + expr->search_frag_len) == ' ') || (*(find + expr->search_frag_len) == '\0'))) {
-          return true; }
+          return true;
+        }
 
-        find += expr->search_frag_len; } }
+        find += expr->search_frag_len;
+      }
+    }
 
   return false;
 }
@@ -1447,10 +1510,10 @@ t_bool _regexpr_match_mid(t_regexpr *expr, t_symbol *match_sym)
 
 // ====  _REGEXPR_MATCH_IN_FORWARD  ====
 
-t_bool _regexpr_match_in_forward(char *search_frag_s, char *match_s)
-{
-  char *pch1 = search_frag_s;
-  char *pch2 = match_s;
+t_bool _regexpr_match_in_forward(char* search_frag_s, char* match_s) {
+
+  char* pch1 = search_frag_s;
+  char* pch2 = match_s;
 
   while ((*pch1 == *pch2) && (*pch1 != '\0')) { pch1++; pch2++; }
 
@@ -1459,12 +1522,12 @@ t_bool _regexpr_match_in_forward(char *search_frag_s, char *match_s)
 
 // ====  _REGEXPR_MATCH_IN_BACKWARD  ====
 
-t_bool _regexpr_match_in_backward(char *search_frag_s, char *match_s, t_int32 search_frag_len, t_int32 match_len)
-{
+t_bool _regexpr_match_in_backward(char* search_frag_s, char* match_s, t_int32 search_frag_len, t_int32 match_len) {
+
   if (search_frag_len > match_len) { return false; }
 
-  char *pch1 = search_frag_s + search_frag_len;
-  char *pch2 = match_s + match_len;
+  char* pch1 = search_frag_s + search_frag_len;
+  char* pch2 = match_s + match_len;
 
   while ((*pch1 == *pch2) && (pch1 != search_frag_s)) { pch1--; pch2--; }
 
